@@ -1,3 +1,4 @@
+'use client'
 import { AuthButtons } from "@/components/AuthButtons";
 import Image from "next/image";
 
