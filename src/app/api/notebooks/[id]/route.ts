@@ -4,14 +4,42 @@ import { authOptions } from "@/lib/authOptions";
 import { connectToDatabase } from "@/lib/mongodb";
 import { Notebook } from "@/models/Notebook";
 
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  await connectToDatabase();
+  const session = await getServerSession(authOptions);
+
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { content } = await req.json();
+
+  const notebook = await Notebook.findOneAndUpdate(
+    { _id: params.id, userId: session.user?.email },
+    { content },
+    { new: true }
+  );
+
+  if (!notebook) {
+    return NextResponse.json(
+      { error: "Not found or unauthorized" },
+      { status: 404 }
+    );
+  }
+
+  return NextResponse.json(notebook);
+}
+
 export async function DELETE(
   req: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
-  const { params } = context; // await context.params if needed
   await connectToDatabase();
-
   const session = await getServerSession(authOptions);
+
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
