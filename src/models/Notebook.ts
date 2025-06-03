@@ -5,6 +5,7 @@ export interface INotebook extends Document {
   title: string;
   content: string;
   createdAt: Date;
+  tags: { type: [String]; default: [] };
 }
 
 const NotebookSchema = new Schema<INotebook>({

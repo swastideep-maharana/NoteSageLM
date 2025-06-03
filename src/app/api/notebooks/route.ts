@@ -10,9 +10,16 @@ export async function GET(req: NextRequest) {
   if (!session)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const notebooks = await Notebook.find({ userId: session.user?.email }).sort({
-    createdAt: -1,
-  });
+  // Optional: Add search by tag query param ?tag=someTag
+  const url = new URL(req.url);
+  const tagFilter = url.searchParams.get("tag");
+
+  let filter = { userId: session.user?.email } as any;
+  if (tagFilter) {
+    filter.tags = tagFilter;
+  }
+
+  const notebooks = await Notebook.find(filter).sort({ createdAt: -1 });
   return NextResponse.json(notebooks);
 }
 
@@ -25,7 +32,7 @@ export async function POST(req: NextRequest) {
   const { title } = await req.json();
 
   if (!title)
-    return NextResponse.json({ error: "Tile is required" }, { status: 400 });
+    return NextResponse.json({ error: "Title is required" }, { status: 400 });
 
   const notebook = await Notebook.create({
     title,

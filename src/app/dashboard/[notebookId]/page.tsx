@@ -17,8 +17,10 @@ export default async function NotebookPage({
 
   if (!/^[0-9a-fA-F]{24}$/.test(params.notebookId)) return notFound();
 
+  const notebookId = params.notebookId;
+
   const notebook = await Notebook.findOne({
-    _id: params.notebookId,
+    _id: notebookId,
     userId: session.user?.email,
   });
 
@@ -30,6 +32,7 @@ export default async function NotebookPage({
       <NotebookEditor
         content={notebook.content}
         notebookId={notebook._id.toString()}
+        initialTags={notebook.tags || []}
       />
     </div>
   );
