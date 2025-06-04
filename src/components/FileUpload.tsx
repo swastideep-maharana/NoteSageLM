@@ -1,58 +1,94 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback } from "react";
+import { useDropzone } from "react-dropzone";
+import { Button } from "@/components/ui/button";
+import { FileText, X } from "lucide-react";
 
-export default function FileUpload() {
-  const [file, setFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
+interface FileUploadProps {
+  files: File[];
+  onChange: (files: File[]) => void;
+  accept?: string;
+  maxFiles?: number;
+}
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setFile(e.target.files[0]);
-    }
-  };
+export function FileUpload({
+  files,
+  onChange,
+  accept,
+  maxFiles = 5,
+}: FileUploadProps) {
+  const onDrop = useCallback(
+    (acceptedFiles: File[]) => {
+      if (files.length + acceptedFiles.length > maxFiles) {
+        // Show error or handle max files limit
+        return;
+      }
+      onChange([...files, ...acceptedFiles]);
+    },
+    [files, onChange, maxFiles]
+  );
 
-  const handleUpload = async () => {
-    if (!file) return;
-    setLoading(true);
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: accept ? { [accept]: [] } : undefined,
+    maxFiles: maxFiles - files.length,
+  });
 
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const res = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    });
-
-    const data = await res.json();
-
-    if (data.summary) {
-      // Encode summary and redirect to editor page
-      const encoded = encodeURIComponent(data.summary);
-      router.push(`/dashboard/imported?content=${encoded}`);
-    } else {
-      alert(data.error || "Failed to summarize file.");
-    }
-
-    setLoading(false);
+  const removeFile = (index: number) => {
+    const newFiles = [...files];
+    newFiles.splice(index, 1);
+    onChange(newFiles);
   };
 
   return (
-    <div className="space-y-2">
-      <input
-        type="file"
-        accept=".pdf,.txt,application/pdf,text/plain"
-        onChange={handleFileChange}
-      />
-      <button
-        onClick={handleUpload}
-        disabled={loading}
-        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+    <div className="space-y-4">
+      <div
+        {...getRootProps()}
+        className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+          isDragActive
+            ? "border-primary bg-primary/5"
+            : "border-muted-foreground/25 hover:border-primary/50"
+        }`}
       >
-        {loading ? "Summarizing..." : "Upload & Summarize"}
-      </button>
+        <input {...getInputProps()} />
+        <FileText className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
+          {isDragActive
+            ? "Drop the files here..."
+            : "Drag & drop files here, or click to select files"}
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          {accept ? `Accepted formats: ${accept}` : "All file types accepted"}
+        </p>
+      </div>
+
+      {files.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Selected Files:</p>
+          <div className="space-y-2">
+            {files.map((file, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between p-2 rounded-md bg-muted"
+              >
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">{file.name}</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => removeFile(index)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

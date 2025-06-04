@@ -1,62 +1,187 @@
 "use client";
 
-import { motion } from "framer-motion";
-import Link from "next/link";
-import { Button } from "./ui/button";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { URLInput } from "@/components/URLInput";
+import { Star, MoreVertical, Pencil, Trash2, Link2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
-type Notebook = {
+interface Notebook {
   _id: string;
   title: string;
+  description?: string;
+  content?: string;
+  type?: string;
+  isStarred?: boolean;
+  urls?: string[];
   createdAt: string;
-  tags?: string[];
-};
+  updatedAt: string;
+}
+
+interface NotebookCardProps {
+  notebook: Notebook;
+  onDelete: (id: string) => void;
+  onStar?: (id: string) => void;
+  onEdit?: (id: string) => void;
+  onAddURL?: (id: string, url: string) => void;
+  onRemoveURL?: (id: string, url: string) => void;
+}
 
 export function NotebookCard({
   notebook,
   onDelete,
-}: {
-  notebook: Notebook;
-  onDelete: (id: string) => void;
-}) {
+  onStar,
+  onEdit,
+  onAddURL,
+  onRemoveURL,
+}: NotebookCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showURLInput, setShowURLInput] = useState(false);
+  const router = useRouter();
+
+  const handleEdit = () => {
+    if (onEdit) {
+      onEdit(notebook._id);
+    } else {
+      router.push(`/notebook/${notebook._id}/edit`);
+    }
+  };
+
+  const handleStar = () => {
+    if (onStar) {
+      onStar(notebook._id);
+    }
+  };
+
+  const handleAddURL = (url: string) => {
+    if (onAddURL) {
+      onAddURL(notebook._id, url);
+    }
+  };
+
+  const handleRemoveURL = (url: string) => {
+    if (onRemoveURL) {
+      onRemoveURL(notebook._id, url);
+    }
+  };
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0 }}
-      layout
-      className="p-4 rounded-lg border bg-muted flex justify-between items-center hover:shadow transition"
-    >
-      <Link href={`/notebook/${notebook._id}`} className="flex-1">
-        <div>
-          <h2 className="font-medium text-base hover:underline">
-            {notebook.title}
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            {new Date(notebook.createdAt).toLocaleString()}
-          </p>
-          {notebook.tags && notebook.tags.length > 0 && (
-            <div className="mt-1 flex flex-wrap gap-2">
-              {notebook.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="bg-gray-300 text-gray-800 rounded-full px-2 py-0.5 text-xs"
+    <div className="border rounded-lg p-4 space-y-4">
+      <div className="flex items-start justify-between">
+        <div className="space-y-1">
+          <h3 className="font-semibold text-lg">{notebook.title}</h3>
+          {notebook.description && (
+            <p className="text-sm text-muted-foreground">
+              {notebook.description}
+            </p>
+          )}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>{new Date(notebook.createdAt).toLocaleDateString()}</span>
+            {notebook.type && (
+              <>
+                <span>•</span>
+                <span className="capitalize">{notebook.type}</span>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {onStar && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={handleStar}
+            >
+              <Star
+                className={`h-4 w-4 ${
+                  notebook.isStarred ? "fill-yellow-400 text-yellow-400" : ""
+                }`}
+              />
+            </Button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {onEdit && (
+                <DropdownMenuItem onClick={handleEdit}>
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </DropdownMenuItem>
+              )}
+              {onAddURL && (
+                <DropdownMenuItem
+                  onClick={() => setShowURLInput(!showURLInput)}
                 >
-                  {tag}
-                </span>
-              ))}
+                  <Link2 className="h-4 w-4 mr-2" />
+                  Add URL
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => onDelete(notebook._id)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      {showURLInput && onAddURL && (
+        <div className="pt-2">
+          <URLInput
+            urls={notebook.urls || []}
+            onAddURL={handleAddURL}
+            onRemoveURL={handleRemoveURL}
+          />
+        </div>
+      )}
+
+      {notebook.urls && notebook.urls.length > 0 && !showURLInput && (
+        <div className="flex flex-wrap gap-2">
+          {notebook.urls.map((url) => (
+            <a
+              key={url}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-primary hover:underline"
+            >
+              {url}
+            </a>
+          ))}
+        </div>
+      )}
+
+      <Button
+        variant="ghost"
+        className="w-full"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        {isExpanded ? "Show Less" : "Show More"}
+      </Button>
+
+      {isExpanded && (
+        <div className="space-y-4 pt-4 border-t">
+          {notebook.content && (
+            <div className="prose prose-sm max-w-none">
+              <div dangerouslySetInnerHTML={{ __html: notebook.content }} />
             </div>
           )}
         </div>
-      </Link>
-
-      <Button
-        variant="destructive"
-        size="sm"
-        onClick={() => onDelete(notebook._id)}
-        className="ml-4"
-      >
-        Delete
-      </Button>
-    </motion.div>
+      )}
+    </div>
   );
 }

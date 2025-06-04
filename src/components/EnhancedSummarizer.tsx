@@ -2,12 +2,36 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 type SummaryStyle = "brief" | "detailed" | "key-points";
-type SummaryLanguage = "en" | "es" | "fr" | "de" | "zh" | "ja";
+type SummaryLanguage =
+  | "en"
+  | "es"
+  | "fr"
+  | "de"
+  | "it"
+  | "pt"
+  | "ru"
+  | "zh"
+  | "ja"
+  | "ko";
 
 interface EnhancedSummarizerProps {
   content: string;
@@ -50,87 +74,135 @@ export function EnhancedSummarizer({
   };
 
   const generateSummary = async () => {
+    if (!content.trim()) {
+      toast.error("Please add some content to summarize");
+      return;
+    }
+
     setLoading(true);
     try {
       const prompt = `${getStylePrompt(style)} ${getLengthPrompt(length)}. Language: ${language}.\n\nText to summarize:\n${content}`;
 
-      const response = await fetch("/api/ai", {
+      const response = await fetch("/api/ai/features", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "summarize",
           content: prompt,
+          options: {
+            type: style,
+            length,
+            language,
+          },
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to generate summary");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate summary");
       }
 
       const data = await response.json();
-      onSummaryGenerated(data.result);
+      onSummaryGenerated(data.summary || data.result);
       toast.success("Summary generated successfully!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error generating summary:", error);
-      toast.error("Failed to generate summary");
+      toast.error(error.message || "Failed to generate summary");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="space-y-4 p-4 bg-white rounded-lg shadow">
-      <h3 className="text-lg font-semibold">Enhanced Summary Options</h3>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Sparkles className="h-5 w-5" />
+          Enhanced Summary
+        </CardTitle>
+        <CardDescription>
+          Generate a customized summary with different styles, lengths, and
+          languages
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="style">Summary Style</Label>
+              <Select
+                value={style}
+                onValueChange={(value: SummaryStyle) => setStyle(value)}
+              >
+                <SelectTrigger id="style">
+                  <SelectValue placeholder="Select style" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="brief">Brief</SelectItem>
+                  <SelectItem value="detailed">Detailed</SelectItem>
+                  <SelectItem value="key-points">Key Points</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">
-            Summary Style
-          </label>
-          <select
-            value={style}
-            onChange={(e) => setStyle(e.target.value as SummaryStyle)}
-            className="w-full p-2 border rounded"
+            <div className="space-y-2">
+              <Label htmlFor="length">Summary Length</Label>
+              <Select value={length} onValueChange={setLength}>
+                <SelectTrigger id="length">
+                  <SelectValue placeholder="Select length" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="short">Short</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="long">Long</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="language">Language</Label>
+              <Select
+                value={language}
+                onValueChange={(value: SummaryLanguage) => setLanguage(value)}
+              >
+                <SelectTrigger id="language">
+                  <SelectValue placeholder="Select language" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="en">English</SelectItem>
+                  <SelectItem value="es">Spanish</SelectItem>
+                  <SelectItem value="fr">French</SelectItem>
+                  <SelectItem value="de">German</SelectItem>
+                  <SelectItem value="it">Italian</SelectItem>
+                  <SelectItem value="pt">Portuguese</SelectItem>
+                  <SelectItem value="ru">Russian</SelectItem>
+                  <SelectItem value="zh">Chinese</SelectItem>
+                  <SelectItem value="ja">Japanese</SelectItem>
+                  <SelectItem value="ko">Korean</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <Button
+            onClick={generateSummary}
+            disabled={loading || !content.trim()}
+            className="w-full"
           >
-            <option value="brief">Brief</option>
-            <option value="detailed">Detailed</option>
-            <option value="key-points">Key Points</option>
-          </select>
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating Summary...
+              </>
+            ) : (
+              <>
+                <Sparkles className="mr-2 h-4 w-4" />
+                Generate Summary
+              </>
+            )}
+          </Button>
         </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-1">Length</label>
-          <select
-            value={length}
-            onChange={(e) => setLength(e.target.value)}
-            className="w-full p-2 border rounded"
-          >
-            <option value="short">Short</option>
-            <option value="medium">Medium</option>
-            <option value="long">Long</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-1">Language</label>
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value as SummaryLanguage)}
-            className="w-full p-2 border rounded"
-          >
-            <option value="en">English</option>
-            <option value="es">Spanish</option>
-            <option value="fr">French</option>
-            <option value="de">German</option>
-            <option value="zh">Chinese</option>
-            <option value="ja">Japanese</option>
-          </select>
-        </div>
-      </div>
-
-      <Button onClick={generateSummary} disabled={loading} className="w-full">
-        {loading ? "Generating..." : "Generate Summary"}
-      </Button>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
