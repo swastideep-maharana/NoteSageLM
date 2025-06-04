@@ -7,36 +7,47 @@ import { Notebook } from "@/models/Notebook";
 export async function GET(req: NextRequest) {
   await connectToDatabase();
   const session = await getServerSession(authOptions);
-  if (!session)
+
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  // Optional: Add search by tag query param ?tag=someTag
-  const url = new URL(req.url);
-  const tagFilter = url.searchParams.get("tag");
-
-  let filter = { userId: session.user?.email } as any;
-  if (tagFilter) {
-    filter.tags = tagFilter;
   }
 
-  const notebooks = await Notebook.find(filter).sort({ createdAt: -1 });
-  return NextResponse.json(notebooks);
+  // Fetch notebooks for the logged-in user
+  const notebooks = await Notebook.find({ userId: session.user?.email }).lean();
+
+  return NextResponse.json(notebooks, { status: 200 });
 }
 
 export async function POST(req: NextRequest) {
   await connectToDatabase();
   const session = await getServerSession(authOptions);
-  if (!session)
+
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-  const { title } = await req.json();
+  const body = await req.json();
+  const { title, notes, summary } = body;
 
-  if (!title)
+  if (!title) {
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
+  }
+
+  let notesToSave = notes || [];
+
+  if (summary && !notes) {
+    notesToSave = [
+      {
+        content: summary,
+        createdAt: new Date(),
+      },
+    ];
+  }
 
   const notebook = await Notebook.create({
     title,
     userId: session.user?.email,
+    notes: notesToSave,
   });
 
   return NextResponse.json(notebook, { status: 201 });

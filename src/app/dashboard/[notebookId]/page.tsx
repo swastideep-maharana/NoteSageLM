@@ -4,6 +4,7 @@ import NotebookEditor from "@/components/NotebookEditor";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { notFound } from "next/navigation";
+import { ExportButton } from "@/components/ExportButton";
 
 export default async function NotebookPage({
   params,
@@ -34,6 +35,7 @@ export default async function NotebookPage({
         notebookId={notebook._id.toString()}
         initialTags={notebook.tags || []}
       />
+      <ExportButton data={notebook} filename="notebooks.json" />
     </div>
   );
 }
