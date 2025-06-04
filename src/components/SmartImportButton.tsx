@@ -2,24 +2,48 @@
 
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 
-type Notebook = {
-  title: string;
-  content: string;
-};
+interface Props {
+  onNotebookCreated: (notebook: { title: string; content: string }) => void;
+}
 
-type Props = {
-  onNotebookCreated: (notebook: Notebook) => Promise<void>;
-};
-
-type ImportResponse = {
-  message?: string;
-  error?: string;
-};
+interface ImportResponse {
+  message: string;
+}
 
 export function SmartImportButton({ onNotebookCreated }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
+
+  const convertToNotebookFormat = (
+    content: string,
+    filename: string
+  ): { notebooks: any[]; notes: any[] } => {
+    // Create a notebook with the filename as title
+    const notebook = {
+      title: filename.split(".")[0] || "Imported Document",
+      content: content,
+      tags: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Create a note with the content
+    const note = {
+      title: "Main Note",
+      content: content,
+      notebookTitle: notebook.title,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    return {
+      notebooks: [notebook],
+      notes: [note],
+    };
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -29,19 +53,27 @@ export function SmartImportButton({ onNotebookCreated }: Props) {
 
     try {
       const text = await file.text();
+      let data;
 
-      // Try parsing the file as JSON with notebooks & notes arrays
-      const data = JSON.parse(text);
+      try {
+        // First try parsing as JSON
+        data = JSON.parse(text);
 
-      if (
-        !data.notebooks ||
-        !data.notes ||
-        !Array.isArray(data.notebooks) ||
-        !Array.isArray(data.notes)
-      ) {
-        alert("Invalid file format: missing notebooks or notes arrays.");
-        setLoading(false);
-        return;
+        // If it's already in the correct format, use it as is
+        if (
+          data.notebooks &&
+          data.notes &&
+          Array.isArray(data.notebooks) &&
+          Array.isArray(data.notes)
+        ) {
+          // Data is already in the correct format
+        } else {
+          // Convert the JSON data into the required format
+          data = convertToNotebookFormat(text, file.name);
+        }
+      } catch {
+        // If JSON parsing fails, treat it as plain text
+        data = convertToNotebookFormat(text, file.name);
       }
 
       const res = await fetch("/api/ai/import", {
@@ -59,9 +91,45 @@ export function SmartImportButton({ onNotebookCreated }: Props) {
 
       const responseData: ImportResponse = await res.json();
 
-      alert(responseData.message || "Import successful!");
+      // Notify parent component about the new notebook
+      if (data.notebooks && data.notebooks.length > 0) {
+        const notebook = {
+          title: data.notebooks[0].title,
+          content: data.notebooks[0].content,
+        };
+        onNotebookCreated(notebook);
+
+        // Trigger AI summarization
+        try {
+          const summaryRes = await fetch("/api/ai", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "summarize",
+              content: notebook.content,
+            }),
+          });
+
+          if (!summaryRes.ok) {
+            throw new Error("Failed to generate summary");
+          }
+
+          const summaryData = await summaryRes.json();
+
+          // Redirect to the imported page with the summary
+          router.push(
+            `/dashboard/imported?content=${encodeURIComponent(summaryData.result)}`
+          );
+        } catch (error) {
+          console.error("Error generating summary:", error);
+          alert(
+            "Document imported successfully, but failed to generate summary. You can try summarizing it manually."
+          );
+          router.push("/dashboard");
+        }
+      }
     } catch (err) {
-      alert("Error reading or importing file. Ensure it is valid JSON.");
+      alert("Error reading or importing file. Please try again.");
       console.error(err);
     } finally {
       setLoading(false);
@@ -73,7 +141,7 @@ export function SmartImportButton({ onNotebookCreated }: Props) {
     <>
       <input
         type="file"
-        accept=".json" // Changed to json to avoid confusion
+        accept=".json,.txt,.md,.doc,.docx,.pdf"
         className="hidden"
         ref={fileRef}
         onChange={handleFileChange}
